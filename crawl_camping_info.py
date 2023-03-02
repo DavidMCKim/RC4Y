@@ -13,19 +13,6 @@ class CrawlCampingInfo():
         """ crawl start date, crawl end date 사이에 있는 뉴스 링크 수집 """
         try:
             url = self.url.replace('<%keyword%>', '경기도 캠핑장')
-            # next_page_flag = True
-            # main_page_no = 1
-            # while next_page_flag:
-            #     try:          
-            #         page_url = self.origin_url
-            #         # 1페이지 수집 시 referer url의 페이지번호 설정 안 함 
-            #         # 그 외 페이지의 경우 이전 페이지 번호로 설정  
-            #         if main_page_no == 1:
-            #             referer_url = self.origin_url.replace("&page=<%PageNum%>", "")
-            #         else:
-            #             referer_url = self.origin_url.replace("<%PageNum%>", str(main_page_no - 1))
-                        
-            #         page_url = self.origin_url.replace("<%PageNum%>", str(main_page_no))
 
             # 헤더 설정
             custom_headers = {
