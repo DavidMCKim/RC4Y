@@ -1,3 +1,4 @@
+import re
 import requests
 import pandas as pd
 from loguru import logger
@@ -24,10 +25,19 @@ class CrawlCampingInfo():
                 'Host': 'pcmap.place.naver.com'
             }
             request = requests.get(url, headers=custom_headers)
+            # 200 OK 코드가 아닌 경우 에러 발동
+            request.raise_for_status()
+            # 한글깨짐 현상으로 인해 'UTF-8'로 인코딩
+            request.encoding='UTF-8'
 
             html = request.text
             soup = BeautifulSoup(html, "html.parser")
-            print(soup)
+            type = str(soup.find_all("script")[2])
+            test = re.compile('^window.__APOLLO_STATE__ = ')
+            print(test.findall(type))
+            
+
+
         except Exception as e:
             print(e)
 
