@@ -8,7 +8,7 @@ class DBConnector :
         self.db = pooling.MySQLConnectionPool(
                 pool_size = 15,
                 pool_name = 'rc4ypool',
-                host="localhost",
+                host='127.0.0.1',
                 database="rc4y" 
         )
 

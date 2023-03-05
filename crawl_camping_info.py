@@ -70,8 +70,7 @@ class CrawlCampsiteInfo():
                         scrap_data['UseFlag'] = 'Y'
 
                         self.db.select('''
-                                        select *
-                                        from tb_Campsite_Info
+                                    
                                        ''')
 
                     except Exception as e:
