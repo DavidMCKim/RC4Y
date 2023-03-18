@@ -11,7 +11,7 @@ class CrawlCampsiteInfo():
     def __init__(self):
         config             = configparser.ConfigParser()
         config.read('config.ini', encoding='utf8')
-        self.url           = 'https://map.naver.com/v5/api/search?caller=pcweb&query=<%KeyWord%>&type=all&page=1&displayCount=20&isPlaceRecommendationReplace=true&lang=ko'
+        self.url           = 'https://map.naver.com/v5/api/search?caller=pcweb&query=<%KeyWord%>&type=all&page=1&displayCount=50&isPlaceRecommendationReplace=true&lang=ko'
         self.db            = DBConnector()
         self.keepCrawl     = True
         self.do_list       = config['CampSite_By_Do']['do_list'].split(', ')
@@ -22,7 +22,7 @@ class CrawlCampsiteInfo():
         try:
             for do in self.do_list:
                 try:
-                    url = self.url
+                    url = self.url.replace('<%KeyWord%>',do)
                     keepCrawl  = self.keepCrawl                  
                     while(keepCrawl):
                         try:
@@ -55,8 +55,11 @@ class CrawlCampsiteInfo():
             keyType = re.compile('^AccommodationSummary')
             for campsite in campsites:
                 try:
-                    scrap_data['Category'] = campsite['category']
-                    scrap_data['CampingId'] = campsite['id']
+                    try:
+                        scrap_data['Category'] = ', '.join(category for category in campsite['category'])
+                    except:
+                        scrap_data['Category'] = ''
+                    scrap_data['CampSiteID'] = campsite['id']
                     scrap_data['CampSiteName'] = campsite['name']
                     scrap_data['RoadAddress'] = campsite['roadAddress']
                     scrap_data['Lotaddress'] = campsite['address']
@@ -64,19 +67,33 @@ class CrawlCampsiteInfo():
                     scrap_data['Longitude'] = campsite['y']
                     scrap_data['PhoneNumber'] = campsite['telDisplay']
                     scrap_data['VirtualNumber'] = campsite['virtualTel']
-                    scrap_data['siteUrl'] = campsite['homePage']
                     try:
-                        scrap_data['Facility'] = campsite['menuInfo'].split(' | ')
+                        scrap_data['siteUrl'] = campsite['homePage']
+                    except:
+                        scrap_data['siteUrl'] = ''
+                    try:
+                        scrap_data['Facility'] = ', '.join(info for info in campsite['menuInfo'].split(' | '))
                     except:
                         scrap_data['Facility'] = ''
-                    scrap_data['ImageUrls'] = campsite['thumUrls']
+                    scrap_data['ImageUrls'] = ', '.join(imageUrl for imageUrl in campsite['thumUrls'])
                     scrap_data['UseFlag'] = 'Y'
 
                     print(scrap_data)
-
-                    # self.db.select('''
-                                
-                    #                ''')
+                    
+                    selectQuery = f'''
+                                    select *
+                                    from tb_CampSite_Info
+                                    where CampSiteID = {scrap_data['CampSiteID']}
+                                    '''
+                    result = self.db.select(selectQuery)
+                    if result == []:
+                        insertQuery = f'''
+                                    INSERT INTO tb_CampSite_Info (Category, CampSiteID, CampSiteName, RoadAddress, Lotaddress, Latitude, Longitude, PhoneNumber, VirtualNumber, siteUrl, Facility, ImageUrls, UseFlag)
+                                    VALUES (%s, %d, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                '''
+                        value = f'''{scrap_data['Category']} / {scrap_data['CampSiteID']} / {scrap_data['CampSiteName']} / {scrap_data['RoadAddress']} / {scrap_data['Lotaddress']} / {scrap_data['Latitude']} / {scrap_data['Longitude']} / {scrap_data['PhoneNumber']} / {scrap_data['VirtualNumber']} / {scrap_data['siteUrl']} / {scrap_data['Facility']} / {scrap_data['ImageUrls']} / {scrap_data['UseFlag']}'''
+                        values =  tuple(value.split(' / '))
+                        self.db.insert_object(values)
 
                 except Exception as e:
                     print(e)

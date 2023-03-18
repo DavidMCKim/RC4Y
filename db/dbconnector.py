@@ -30,18 +30,18 @@ class DBConnector :
             print(ex)
 
         finally:
-            if self.conn.is_connected() or self.conn.pool_name is not None :
-                cursor.close()
-                self.conn.close()
+            cursor.close()
+            self.conn.close()
 
         return result
 
-    def insert(self, query) :
+    def insert(self, query, values) :
         result = -1
         try :
             cursor = self.conn.cursor()
+            
 
-            cursor.execute(query)
+            cursor.execute(query, ())
             self.db.commit()
 
             result = cursor.rowcount
@@ -50,25 +50,22 @@ class DBConnector :
             print(ex)
 
         finally:
-            if self.conn.is_connected() or self.conn.pool_name is not None :
-                cursor.close()
-                self.conn.close()
+            cursor.close()
+            self.conn.close()
 
         return result
 
-    def insert_object(self, tablename, column, value) :
+    def insert_object(self, values) :
         result = -1
         try :
             cursor = self.conn.cursor()
-
-            value_tmp = str(tuple(('%s' for i in range (0, len(column))))).replace('\'', '')
             
             query = f'''
-            INSERT INTO {tablename}{str(tuple(column))}
-            VALUES {value_tmp}
+                INSERT INTO tb_CampSite_Info (Category, CampSiteID, CampSiteName, RoadAddress, Lotaddress, Latitude, Longitude, PhoneNumber, VirtualNumber, siteUrl, Facility, ImageUrls, UseFlag)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             '''
             
-            cursor.execute(query, value)
+            cursor.execute(query, values)
             self.db.commit()
 
             result = cursor.rowcount
@@ -77,9 +74,8 @@ class DBConnector :
             print(ex)   
 
         finally:
-            if self.conn.is_connected() or self.conn.pool_name is not None :
-                cursor.close()
-                self.conn.close()
+            cursor.close()
+            self.conn.close()
 
         return result
 
@@ -97,8 +93,7 @@ class DBConnector :
             print(ex)
 
         finally:
-            if self.conn.is_connected() or self.conn.pool_name is not None :
-                cursor.close()
-                self.conn.close()
+            cursor.close()
+            self.conn.close()
 
         return result
