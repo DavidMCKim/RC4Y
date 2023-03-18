@@ -1,6 +1,7 @@
 import re
 import json
 import requests
+import configparser
 import pandas as pd
 from loguru import logger
 from bs4 import BeautifulSoup
@@ -8,75 +9,81 @@ from db.dbconnector import DBConnector
 
 class CrawlCampsiteInfo():
     def __init__(self):
-        self.url     = 'https://pcmap.place.naver.com/accommodation/list?query=<%keyword%>&mapUrl=https://map.naver.com/v5/search/<%keyword%>'
-        self.baseUrl = 'https://www.map.naver.com/v5/search/<%keyword%>'
-        self.db      = DBConnector()
+        config             = configparser.ConfigParser()
+        config.read('config.ini', encoding='utf8')
+        self.url           = 'https://map.naver.com/v5/api/search?caller=pcweb&query=<%KeyWord%>&type=all&page=1&displayCount=20&isPlaceRecommendationReplace=true&lang=ko'
+        self.db            = DBConnector()
+        self.keepCrawl     = True
+        self.do_list       = config['CampSite_By_Do']['do_list'].split(', ')
         
         
     def Init_RC4Y(self):
-        """ crawl start date, crawl end date 사이에 있는 뉴스 링크 수집 """
+        """ 네이버 지도에서 도별(경기도, 충청북도, 충청남도, 강원도 등..) 캠핑장 데이터 수집 """
         try:
-            url = self.url.replace('<%keyword%>', '경기도 캠핑장')
+            for do in self.do_list:
+                try:
+                    url = self.url
+                    keepCrawl  = self.keepCrawl                  
+                    while(keepCrawl):
+                        try:
+                            # 헤더 설정
+                            custom_headers = {
+                                'User-Agent'   : 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Mobile Safari/537.36',
+                            }
+                            request = requests.get(url, headers=custom_headers, timeout=10)
+                            # 200 OK 코드가 아닌 경우 에러 발동
+                            request.raise_for_status()
+                            # 한글깨짐 현상으로 인해 'UTF-8'로 인코딩
+                            request.encoding='UTF-8'
 
-            # 헤더 설정
-            custom_headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36',
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cookie': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-                'Referer': 'https://map.naver.com/',
-                'Host': 'pcmap.place.naver.com'
-            }
-            request = requests.get(url, headers=custom_headers)
-            # 200 OK 코드가 아닌 경우 에러 발동
-            request.raise_for_status()
-            # 한글깨짐 현상으로 인해 'UTF-8'로 인코딩
-            request.encoding='UTF-8'
+                            html = request.text
+                            data = json.loads(html)
+                            campsites = data['result']['place']['list']
+                            scrap_data = self.Get_Campsite_Info(campsites)
 
-            html = request.text
-            soup = BeautifulSoup(html, "html.parser")
-            # split이 위험할 수도 있으니 정규표현식으로 변경할 수 있도록 수정 필요!!
-            html_campsite_info = str(soup.find_all("script")[2]).split(';')[4]
-            html_campsite_info = f"{html_campsite_info.replace('window.__APOLLO_STATE__ = ','')}"
-            json_campsite_info = json.loads(html_campsite_info)
-            self.Get_Campsite_Info(json_campsite_info)
-               
+                        except Exception as e:
+                            print(e)
+                except Exception as e:
+                    print(e)
         except Exception as e:
             print(e)
 
-    def Get_Campsite_Info(self, json_campsite_info):
+    def Get_Campsite_Info(self, campsites):
         try:
-            scrap_data = {'Category' : '', 'CategoryCode' : '', 'CampingId' : '', 'CampSiteName' : '', 'RoadAddress' : '', 'Lotaddress' : '', 'Latitude' : '',
-                          'Longitude' : '', 'PhoneNumber' : '', 'VirtualNumber' : '', 'PromotionTitle' : '', 'Facility' : '', 'ImageUrls' : '', 'UseFlag' : ''}
+            scrap_data = {'Category' : '', 'CampingId' : '', 'CampSiteName' : '', 'RoadAddress' : '', 'Lotaddress' : '', 'Latitude' : '',
+                          'Longitude' : '', 'PhoneNumber' : '', 'VirtualNumber' : '', 'siteUrl' : '', 'Facility' : '', 'ImageUrls' : '', 'UseFlag' : ''}
             keyType = re.compile('^AccommodationSummary')
-            for key in json_campsite_info.keys():
-                if keyType.match(key):
-                    print(json_campsite_info[key])
-                    campsiteInfo = json_campsite_info[key]
+            for campsite in campsites:
+                try:
+                    scrap_data['Category'] = campsite['category']
+                    scrap_data['CampingId'] = campsite['id']
+                    scrap_data['CampSiteName'] = campsite['name']
+                    scrap_data['RoadAddress'] = campsite['roadAddress']
+                    scrap_data['Lotaddress'] = campsite['address']
+                    scrap_data['Latitude'] = campsite['x']
+                    scrap_data['Longitude'] = campsite['y']
+                    scrap_data['PhoneNumber'] = campsite['telDisplay']
+                    scrap_data['VirtualNumber'] = campsite['virtualTel']
+                    scrap_data['siteUrl'] = campsite['homePage']
                     try:
-                        scrap_data['Category'] = campsiteInfo['businessCategory']
-                        scrap_data['CategoryCode'] = campsiteInfo['categoryCode']
-                        scrap_data['CampingId'] = campsiteInfo['id']
-                        scrap_data['CampSiteName'] = campsiteInfo['name']
-                        scrap_data['RoadAddress'] = campsiteInfo['roadAddress']
-                        scrap_data['Lotaddress'] = campsiteInfo['commonAddress'] + campsiteInfo['address']
-                        scrap_data['Latitude'] = campsiteInfo['x']
-                        scrap_data['Longitude'] = campsiteInfo['y']
-                        scrap_data['PhoneNumber'] = campsiteInfo['phone']
-                        scrap_data['VirtualNumber'] = campsiteInfo['virtualPhone']
-                        scrap_data['PromotionTitle'] = campsiteInfo['promotionTitle']
-                        scrap_data['Facility'] = campsiteInfo['facility']
-                        scrap_data['ImageUrls'] = campsiteInfo['imageUrls']
-                        scrap_data['UseFlag'] = 'Y'
+                        scrap_data['Facility'] = campsite['menuInfo'].split(' | ')
+                    except:
+                        scrap_data['Facility'] = ''
+                    scrap_data['ImageUrls'] = campsite['thumUrls']
+                    scrap_data['UseFlag'] = 'Y'
 
-                        self.db.select('''
-                                    
-                                       ''')
+                    print(scrap_data)
 
-                    except Exception as e:
-                        print(e)
+                    # self.db.select('''
+                                
+                    #                ''')
+
+                except Exception as e:
+                    print(e)
         except Exception as e:
             print(e)
+
+        return scrap_data
 
 if __name__ == '__main__':
     c = CrawlCampsiteInfo()
