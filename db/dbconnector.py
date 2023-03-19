@@ -58,11 +58,12 @@ class DBConnector :
     def insert_object(self, values) :
         result = -1
         try :
-            cursor = self.conn.cursor()
+            
+            cursor = self.conn.cursor(buffered=True)
             
             query = f'''
-                INSERT INTO tb_CampSite_Info (Category, CampSiteID, CampSiteName, RoadAddress, Lotaddress, Latitude, Longitude, PhoneNumber, VirtualNumber, siteUrl, Facility, ImageUrls, UseFlag)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO tb_CampSite_Info (Category, CampSiteID, CampSiteName, RoadAddress, Lotaddress, Latitude, Longitude, PhoneNumber, VirtualNumber, SiteUrl, Facility, ImageUrls, UseFlag, RegDate)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             '''
             
             cursor.execute(query, values)
@@ -71,7 +72,9 @@ class DBConnector :
             result = cursor.rowcount
 
         except Exception as ex :
-            print(ex)   
+            code, msg = ex.args
+            print(code)   
+            print(msg)
 
         finally:
             cursor.close()
